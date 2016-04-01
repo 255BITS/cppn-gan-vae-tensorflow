@@ -318,7 +318,7 @@ class CPPNVAE():
   def load_model(self, checkpoint_path):
 
     ckpt = tf.train.get_checkpoint_state(checkpoint_path)
-    print "loading model: ",ckpt.model_checkpoint_path
+    print("loading model: ",ckpt.model_checkpoint_path)
 
     self.saver.restore(self.sess, checkpoint_path+'/'+ckpt.model_checkpoint_path)
     # use the below line for tensorflow 0.7
