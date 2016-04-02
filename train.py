@@ -71,7 +71,8 @@ def train(args):
 
   # Training cycle
   for epoch in range(training_epochs):
-    data = glob(os.path.join("./training", "*.wav"))
+    batch_files = glob(os.path.join("./training", "*.wav"))
+    np.random.shuffle(batch_files)
     avg_d_loss = 0.
     avg_q_loss = 0.
     avg_vae_loss = 0.
@@ -84,7 +85,7 @@ def train(args):
                 print("Could not load ", filee, e)
 
 
-    for filee in get_wav_content(data):
+    for filee in get_wav_content(batch_files):
       data = filee["data"]
       n_samples = len(data)
       samples_per_batch=batch_size * cppnvae.x_dim * cppnvae.y_dim
