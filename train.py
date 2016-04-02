@@ -87,6 +87,7 @@ def train(args):
 
     for filee in get_wav_content(batch_files):
       data = filee["data"]
+      print("min", np.min(data), np.max(data))
       n_samples = len(data)
       samples_per_batch=batch_size * cppnvae.x_dim * cppnvae.y_dim
       total_batch = int(n_samples / samples_per_batch)
@@ -117,6 +118,13 @@ def train(args):
           avg_d_loss += d_loss / n_samples * batch_size
           avg_q_loss += g_loss / n_samples * batch_size
           avg_vae_loss += vae_loss / n_samples * batch_size
+          
+        # save model
+        checkpoint_path = os.path.join('save', 'model.ckpt')
+        cppnvae.save_model(checkpoint_path, epoch)
+        print("model saved to {}".format(checkpoint_path))
+
+
       except:
           print("Oh shit we diverged. Reloading and retrying different file")
           # load previously trained model if appilcabl
@@ -125,11 +133,7 @@ def train(args):
             cppnvae.load_model(dirname)
 
       finally:
-          # save model
-          checkpoint_path = os.path.join('save', 'model.ckpt')
-          cppnvae.save_model(checkpoint_path, epoch)
-          print("model saved to {}".format(checkpoint_path))
-
+          print("Next Song")
     # Display logs per epoch step
     if epoch >= 0:
       print("Epoch:", '%04d' % (epoch), \

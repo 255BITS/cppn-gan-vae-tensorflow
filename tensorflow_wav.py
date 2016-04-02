@@ -98,6 +98,4 @@ def ff_nn(input, name):
 
 
 def scale_up(input):
-    with tf.variable_scope("scale"):
-        w = tf.get_variable('scale_w', [1], dtype=tf.float32, initializer=tf.constant_initializer(0.001))
-        return input/w
+    return tf.mul(input,32767)
