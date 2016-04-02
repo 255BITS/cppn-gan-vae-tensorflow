@@ -98,4 +98,4 @@ def ff_nn(input, name):
 
 
 def scale_up(input):
-    return tf.mul(input,32767)
+    return tf.mul(tf.sin(tf.mul(input,np.pi/2.0)), 32767.0)
