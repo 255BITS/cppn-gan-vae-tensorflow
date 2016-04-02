@@ -7,7 +7,6 @@ import argparse
 import time
 import os
 
-from mnist_data import *
 from model import CPPNVAE
 
 '''
@@ -30,7 +29,7 @@ def main():
                      help='display step')
   parser.add_argument('--checkpoint_step', type=int, default=1,
                      help='checkpoint step')
-  parser.add_argument('--batch_size', type=int, default=500,
+  parser.add_argument('--batch_size', type=int, default=128,
                      help='batch size')
   parser.add_argument('--learning_rate', type=float, default=0.005,
                      help='learning rate for G and VAE')
@@ -61,9 +60,6 @@ def train(args):
     os.makedirs(dirname)
 
 
-  mnist = read_data_sets()
-  n_samples = mnist.num_examples
-
   cppnvae = CPPNVAE(batch_size=batch_size, learning_rate = learning_rate, learning_rate_d = learning_rate_d, learning_rate_vae = learning_rate_vae, beta1 = beta1, keep_prob = keep_prob)
 
   # load previously trained model if appilcable
@@ -79,7 +75,6 @@ def train(args):
     avg_d_loss = 0.
     avg_q_loss = 0.
     avg_vae_loss = 0.
-    mnist.shuffle_data()
     def get_wav_content(files):
         for filee in files:
             print("Yielding ", filee)
@@ -92,19 +87,17 @@ def train(args):
     for filee in get_wav_content(data):
       data = filee["data"]
       n_samples = len(data)
-      total_batch = int(n_samples / batch_size)
+      samples_per_batch=batch_size * cppnvae.x_dim * cppnvae.y_dim
+      total_batch = int(n_samples / samples_per_batch)
 
       # Loop over all batches
       for i in range(total_batch):
-        batch_audio =data[(i*batch_size*cppnvae.t_dim):((i+1)*batch_size*cppnvae.t_dim)]
-        print(np.shape(batch_audio), cppnvae.t_dim, batch_size)
-        batch_audio = np.reshape(batch_audio, (batch_size, cppnvae.t_dim, 1))
+        batch_audio =data[(i*samples_per_batch):((i+1)*samples_per_batch)]
+        batch_audio = np.reshape(batch_audio, (batch_size, cppnvae.x_dim, cppnvae.y_dim, 1))
+        batch_audio = np.array(batch_audio, np.float32) / 65535.0
 
         d_loss, g_loss, vae_loss, n_operations = cppnvae.partial_train(batch_audio)
 
-        assert( vae_loss < 1000000 ) # make sure it is not NaN or Inf
-        assert( d_loss < 1000000 ) # make sure it is not NaN or Inf
-        assert( g_loss < 1000000 ) # make sure it is not NaN or Inf
 
         # Display logs per epoch step
         if (counter+1) % display_step == 0:
@@ -113,6 +106,10 @@ def train(args):
                 "g_loss=", "{:.4f}".format(g_loss), \
                 "vae_loss=", "{:.4f}".format(vae_loss), \
                 "n_op=", '%d' % (n_operations))
+
+        assert( vae_loss < 1000000 ) # make sure it is not NaN or Inf
+        assert( d_loss < 1000000 ) # make sure it is not NaN or Inf
+        assert( g_loss < 1000000 ) # make sure it is not NaN or Inf
         counter += 1
         # Compute average loss
         avg_d_loss += d_loss / n_samples * batch_size

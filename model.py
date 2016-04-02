@@ -23,8 +23,8 @@ https://en.wikipedia.org/wiki/Compositional_pattern-producing_network
 '''
 
 class CPPNVAE():
-  def __init__(self, batch_size=1, z_dim=32,
-                x_dim = 26, y_dim = 26, c_dim = 1, scale = 8.0,
+  def __init__(self, batch_size=2, z_dim=32,
+                x_dim = 64, y_dim = 64, c_dim = 1, scale = 8.0,
                 learning_rate= 0.01, learning_rate_d= 0.001, learning_rate_vae = 0.0001, beta1 = 0.9, net_size_g = 128, net_depth_g = 4,
                 net_size_q = 512, keep_prob = 1.0, df_dim = 24, model_name = "cppnvae"):
     """
@@ -97,11 +97,11 @@ class CPPNVAE():
 
     # Use generator to determine mean of
     # Bernoulli distribution of reconstructed input
-    self.G = self.generator()
+    self.G = self.generator(self.x_dim, self.y_dim)
     self.batch_reconstruct_flatten = tf.reshape(self.G, [batch_size, -1])
 
     self.D_right = self.discriminator(self.batch) # discriminiator on correct examples
-    self.D_wrong = self.discriminator(self.G, reuse=True) # feed generated images into D
+    self.D_wrong = self.discriminator(self.G*65535, reuse=True) # feed generated images into D
 
     self.create_vae_loss_terms()
     self.create_gan_loss_terms()
@@ -235,7 +235,6 @@ class CPPNVAE():
       H = tf.nn.tanh(fully_connected(H, n_network, self.model_name+'_g_tanh_'+str(i)))
 
     output = tf.sigmoid(fully_connected(H, self.c_dim, self.model_name+'_g_'+str(self.net_depth_g)))
-
     result = tf.reshape(output, [self.batch_size, gen_y_dim, gen_x_dim, self.c_dim])
 
     return result
