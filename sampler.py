@@ -33,10 +33,10 @@ import matplotlib.pyplot as plt
 import images2gif
 from images2gif import writeGif
 
-mgc = get_ipython().magic
-mgc(u'matplotlib inline')
-mgc(u'run -i mnist_data.py')
-pylab.rcParams['figure.figsize'] = (10.0, 10.0)
+#mgc = get_ipython().magic
+#mgc(u'matplotlib inline')
+#mgc(u'run -i mnist_data.py')
+#pylab.rcParams['figure.figsize'] = (10.0, 10.0)
 
 class Sampler():
   def __init__(self):
@@ -132,7 +132,7 @@ class Sampler():
       if sinusoid == True:
         factor = np.sin(percentage*np.pi/2)
       z = z1 + diff_z*factor
-      print "processing image ", i
+      print("processing image ", i)
       img_data_array.append(self.generate(z, x_dim, y_dim, scale))
     return img_data_array
   def save_anim_gif(self, img_data_array, filename, duration = 0.1):
