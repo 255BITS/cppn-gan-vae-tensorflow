@@ -90,37 +90,45 @@ def train(args):
       n_samples = len(data)
       samples_per_batch=batch_size * cppnvae.x_dim * cppnvae.y_dim
       total_batch = int(n_samples / samples_per_batch)
+      try:
 
-      # Loop over all batches
-      for i in range(total_batch):
-        batch_audio =data[(i*samples_per_batch):((i+1)*samples_per_batch)]
-        batch_audio = np.reshape(batch_audio, (batch_size, cppnvae.x_dim, cppnvae.y_dim, 1))
-        batch_audio = np.array(batch_audio, np.float32) / 65535.0
+        # Loop over all batches
+        for i in range(total_batch):
+          batch_audio =data[(i*samples_per_batch):((i+1)*samples_per_batch)]
+          batch_audio = np.reshape(batch_audio, (batch_size, cppnvae.x_dim, cppnvae.y_dim, 1))
+          batch_audio = np.array(batch_audio, np.float32) / 65535.0
+  
+          d_loss, g_loss, vae_loss, n_operations = cppnvae.partial_train(batch_audio)
+  
+  
+          # Display logs per epoch step
+          if (counter+1) % display_step == 0:
+            print("Sample:", '%d' % ((i+1)*batch_size), " Epoch:", '%d' % (epoch), \
+                  "d_loss=", "{:.4f}".format(d_loss), \
+                  "g_loss=", "{:.4f}".format(g_loss), \
+                  "vae_loss=", "{:.4f}".format(vae_loss), \
+                  "n_op=", '%d' % (n_operations))
+  
+          assert( vae_loss < 1000000 ) # make sure it is not NaN or Inf
+          assert( d_loss < 1000000 ) # make sure it is not NaN or Inf
+          assert( g_loss < 1000000 ) # make sure it is not NaN or Inf
+          counter += 1
+          # Compute average loss
+          avg_d_loss += d_loss / n_samples * batch_size
+          avg_q_loss += g_loss / n_samples * batch_size
+          avg_vae_loss += vae_loss / n_samples * batch_size
+      except:
+          print("Oh shit we diverged. Reloading and retrying different file")
+          # load previously trained model if appilcabl
+          ckpt = tf.train.get_checkpoint_state(dirname)
+          if ckpt:
+            cppnvae.load_model(dirname)
 
-        d_loss, g_loss, vae_loss, n_operations = cppnvae.partial_train(batch_audio)
-
-
-        # Display logs per epoch step
-        if (counter+1) % display_step == 0:
-          print("Sample:", '%d' % ((i+1)*batch_size), " Epoch:", '%d' % (epoch), \
-                "d_loss=", "{:.4f}".format(d_loss), \
-                "g_loss=", "{:.4f}".format(g_loss), \
-                "vae_loss=", "{:.4f}".format(vae_loss), \
-                "n_op=", '%d' % (n_operations))
-
-        assert( vae_loss < 1000000 ) # make sure it is not NaN or Inf
-        assert( d_loss < 1000000 ) # make sure it is not NaN or Inf
-        assert( g_loss < 1000000 ) # make sure it is not NaN or Inf
-        counter += 1
-        # Compute average loss
-        avg_d_loss += d_loss / n_samples * batch_size
-        avg_q_loss += g_loss / n_samples * batch_size
-        avg_vae_loss += vae_loss / n_samples * batch_size
-
-      # save model
-      checkpoint_path = os.path.join('save', 'model.ckpt')
-      cppnvae.save_model(checkpoint_path, epoch)
-      print("model saved to {}".format(checkpoint_path))
+      finally:
+          # save model
+          checkpoint_path = os.path.join('save', 'model.ckpt')
+          cppnvae.save_model(checkpoint_path, epoch)
+          print("model saved to {}".format(checkpoint_path))
 
     # Display logs per epoch step
     if epoch >= 0:
