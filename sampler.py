@@ -41,7 +41,7 @@ from images2gif import writeGif
 class Sampler():
   def __init__(self):
     self.mnist = None
-    self.model = CPPNVAE()
+    self.model = CPPNVAE(batch_size=128)
     self.model.load_model('save')
     self.z = self.generate_z()
   def get_random_mnist(self, with_label = False):
@@ -63,7 +63,7 @@ class Sampler():
     self.show_image(m)
     self.show_image_from_z(self.encode(m))
   def generate_z(self):
-    z = np.random.normal(size=self.model.z_dim).astype(np.float32)
+    z = np.random.normal(size=(128, self.model.z_dim)).astype(np.float32)
     return z
   def encode(self, mnist_data):
     new_shape = [1]+list(mnist_data.shape)
@@ -72,9 +72,9 @@ class Sampler():
     if z is None:
       z = self.generate_z()
     else:
-      z = np.reshape(z, (1, self.model.z_dim))
+      z = np.reshape(z, (128, self.model.z_dim))
     self.z = z
-    return self.model.generate(z, x_dim, y_dim, scale)[0]
+    return self.model.generate(z, x_dim, y_dim, scale)
   def show_image(self, image_data):
     '''
     image_data is a tensor, in [height width depth]
