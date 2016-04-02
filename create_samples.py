@@ -19,15 +19,17 @@ print("Generating")
 
 bitrate = 4096
 t_dims = [bitrate, bitrate*2]
+scales = [8.0, 16.0, 24.0]
 for t_dim in t_dims:
-    wavdata = [model.generate(new_z(), t_dim=t_dim) for i in range(10)]
-    samplewav = sample.copy()
-    wavdata = np.reshape(wavdata, [-1])
-    print(np.array(wavdata), "/before")
+    for scale in scales:
+        wavdata = [model.generate(new_z(), t_dim=t_dim, scale=scale) for i in range(10)]
+        samplewav = sample.copy()
+        wavdata = np.reshape(wavdata, [-1])
+        print(np.array(wavdata), "/before")
 
-    #biggest = np.max(np.abs(np.max(wavdata)), np.abs(np.min(wavdata)))
-    print("Biggest", np.max(wavdata))
-    samplewav['data']=wavdata
+        #biggest = np.max(np.abs(np.max(wavdata)), np.abs(np.min(wavdata)))
+        print("Biggest", np.max(wavdata))
+        samplewav['data']=wavdata
 
-    filename = "samples/song_t"+str(t_dim)+".wav"
-    tensorflow_wav.save_wav(samplewav, filename )
+        filename = "samples/song_t"+str(t_dim)+"_s"+str(scale)+".wav"
+        tensorflow_wav.save_wav(samplewav, filename )

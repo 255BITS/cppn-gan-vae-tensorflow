@@ -31,13 +31,13 @@ def main():
                      help='checkpoint step')
   parser.add_argument('--batch_size', type=int, default=128,
                      help='batch size')
-  parser.add_argument('--learning_rate', type=float, default=0.005,
+  parser.add_argument('--learning_rate', type=float, default=0.002,
                      help='learning rate for G and VAE')
   parser.add_argument('--learning_rate_vae', type=float, default=0.001,
                      help='learning rate for VAE')
-  parser.add_argument('--learning_rate_d', type=float, default=0.001,
+  parser.add_argument('--learning_rate_d', type=float, default=0.0005,
                      help='learning rate for D')
-  parser.add_argument('--keep_prob', type=float, default=1.00,
+  parser.add_argument('--keep_prob', type=float, default=0.6,
                      help='dropout keep probability')
   parser.add_argument('--beta1', type=float, default=0.65,
                      help='adam momentum param for descriminator')
@@ -88,21 +88,11 @@ def train(args):
     for filee in get_wav_content(batch_files):
       data = filee["data"]
       print("min", np.min(data), np.max(data))
-      nonzero_data = []
 
       n_samples = len(data)
       samples_per_batch=batch_size * cppnvae.t_dim
       total_batch = int(n_samples / samples_per_batch)
-      for i in range(total_batch):
-          batch_audio =data[(i*samples_per_batch):((i+1)*samples_per_batch)]
-          maxi = np.max(batch_audio)
-          if(maxi > 1000):
-            # toss batches with low volume
-            nonzero_data = np.hstack((nonzero_data, batch_audio))
         
-      print("Nonzero", len(nonzero_data), "All", len(data))
-      n_samples = len(nonzero_data)
-      total_batch = int(n_samples / samples_per_batch)
 
 
       try:
@@ -112,7 +102,6 @@ def train(args):
           batch_audio =data[(i*samples_per_batch):((i+1)*samples_per_batch)]
           batch_audio = np.reshape(batch_audio, (batch_size, cppnvae.t_dim, 1))
           batch_audio = np.dot(np.array(batch_audio, np.float32), 1.0/32767)
-          print("max", np.max(batch_audio))
   
           d_loss, g_loss, vae_loss, n_operations = cppnvae.partial_train(batch_audio)
   

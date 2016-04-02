@@ -146,7 +146,7 @@ class CPPNVAE():
     latent_loss = -0.5 * tf.reduce_sum(1 + self.z_log_sigma_sq
                                        - tf.square(self.z_mean)
                                        - tf.exp(self.z_log_sigma_sq), 1)
-    self.vae_loss = tf.reduce_mean(reconstr_loss + latent_loss) / self.n_points # average over batch and pixel
+    self.vae_loss = tf.reduce_mean(reconstr_loss + latent_loss) / self.t_dim # average over batch and pixel
 
   def create_gan_loss_terms(self):
     # Define loss function and optimiser
@@ -156,7 +156,7 @@ class CPPNVAE():
     self.g_loss = 1.0*binary_cross_entropy_with_logits(tf.ones_like(self.D_wrong), self.D_wrong)
 
   def coordinates(self, t_dim=4096):
-    t_range = (np.arange(t_dim)-(t_dim-1))/2.0/(t_dim-1)/0.5
+    t_range = (np.arange(t_dim)-(t_dim-1)/2.0)/(t_dim-1)/0.5
     t_mat = np.tile(t_range.flatten(), self.batch_size).reshape(self.batch_size, t_dim, 1)
     return t_mat
 
@@ -177,7 +177,7 @@ class CPPNVAE():
         tf.get_variable_scope().reuse_variables()
 
     # convert to 2d - seems to be ok
-    wav = tf.reshape(wav, [self.batch_size, np.sqrt(t_dim), np.sqrt(t_dim), 1])
+    wav = tf.reshape(wav, [self.batch_size, int(np.sqrt(self.t_dim)), int(np.sqrt(self.t_dim)), 1])
 
     h0 = lrelu(conv2d(wav, self.df_dim, name=self.model_name+'_d_h0_conv'))
     h1 = lrelu(self.d_bn1(conv2d(h0, self.df_dim*2, name=self.model_name+'_d_h1_conv')))
@@ -186,7 +186,7 @@ class CPPNVAE():
 
     return tf.nn.sigmoid(h3)
 
-  def generator(self, gen_t_dim = 4096, reuse = False):
+  def generator(self, gen_t_dim = 4096, scale=8.0, reuse = False):
 
     if reuse:
         tf.get_variable_scope().reuse_variables()
@@ -195,7 +195,7 @@ class CPPNVAE():
     gen_n_points = gen_t_dim
 
     z_scaled = tf.reshape(self.z, [self.batch_size, 1, self.z_dim]) * \
-                    tf.ones([gen_n_points, 1], dtype=tf.float32) * 1.0#scale
+                    tf.ones([gen_n_points, 1], dtype=tf.float32) * scale
     z_unroll = tf.reshape(z_scaled, [self.batch_size*gen_n_points, self.z_dim])
     t_unroll = tf.reshape(self.t, [self.batch_size*gen_n_points, 1])
 
@@ -209,8 +209,8 @@ class CPPNVAE():
 
     #last_layer = tf.mul(2*n_pi, fully_connected(H, self.c_dim, self.model_name+'_g_'+str(self.net_depth_g)))
     #output = tf.sin(last_layer)
+    output = tf.sigmoid(fully_connected(H, self.c_dim, self.model_name+'_g_'+str(self.net_depth_g)))
     result = tf.reshape(output, [self.batch_size, gen_t_dim, self.c_dim])
-    
 
     return result
 
@@ -258,7 +258,7 @@ class CPPNVAE():
       # sample from Gaussian distribution
       return self.sess.run(self.z_mean, feed_dict={self.batch: X})
 
-  def generate(self, z=None, t_dim = 64):
+  def generate(self, z=None, t_dim = 64, scale=8.0):
     """ Generate data by sampling from latent space.
 
     If z is not None, data for this point in latent space is
@@ -272,10 +272,10 @@ class CPPNVAE():
 
     z = np.reshape(z, (self.batch_size, self.z_dim))
 
-    G = self.generator(gen_t_dim = t_dim, reuse = True)
-    gen_t_vec, gen_r_vec = self.coordinates(t_dim)
+    G = self.generator(gen_t_dim = t_dim, scale=scale, reuse = True)
+    gen_t_vec = self.coordinates(t_dim)
     image = self.sess.run(G, feed_dict={self.z: z, self.t: gen_t_vec})
-    return image*32767
+    return np.dot(image,32767.0)
 
   def save_model(self, checkpoint_path, epoch):
     """ saves the model to a file """
