@@ -62,7 +62,7 @@ def train(args):
 
   cppnvae = CPPNVAE(batch_size=batch_size, learning_rate = learning_rate, learning_rate_d = learning_rate_d, learning_rate_vae = learning_rate_vae, beta1 = beta1, keep_prob = keep_prob)
 
-  # load previously trained model if appilcable
+  # load previously trained model if appilcabl
   ckpt = tf.train.get_checkpoint_state(dirname)
   if ckpt:
     cppnvae.load_model(dirname)
@@ -88,15 +88,29 @@ def train(args):
     for filee in get_wav_content(batch_files):
       data = filee["data"]
       print("min", np.min(data), np.max(data))
+      nonzero_data = []
+
       n_samples = len(data)
-      samples_per_batch=batch_size * cppnvae.x_dim * cppnvae.y_dim
+      samples_per_batch=batch_size * cppnvae.t_dim
       total_batch = int(n_samples / samples_per_batch)
+      for i in range(total_batch):
+          batch_audio =data[(i*samples_per_batch):((i+1)*samples_per_batch)]
+          maxi = np.max(batch_audio)
+          if(maxi > 1000):
+            # toss batches with low volume
+            nonzero_data = np.hstack((nonzero_data, batch_audio))
+        
+      print("Nonzero", len(nonzero_data), "All", len(data))
+      n_samples = len(nonzero_data)
+      total_batch = int(n_samples / samples_per_batch)
+
+
       try:
 
         # Loop over all batches
         for i in range(total_batch):
           batch_audio =data[(i*samples_per_batch):((i+1)*samples_per_batch)]
-          batch_audio = np.reshape(batch_audio, (batch_size, cppnvae.x_dim, cppnvae.y_dim, 1))
+          batch_audio = np.reshape(batch_audio, (batch_size, cppnvae.t_dim, 1))
           batch_audio = np.dot(np.array(batch_audio, np.float32), 1.0/32767)
           print("max", np.max(batch_audio))
   

@@ -25,21 +25,20 @@ https://en.wikipedia.org/wiki/Compositional_pattern-producing_network
 
 class CPPNVAE():
   def __init__(self, batch_size=1, z_dim=32,
-                x_dim = 64, y_dim = 64, c_dim = 1, scale = 8.0,
+                t_dim = 4096, c_dim = 1,
                 learning_rate= 0.01, learning_rate_d= 0.001, learning_rate_vae = 0.0001, beta1 = 0.9, net_size_g = 128, net_depth_g = 4,
                 net_size_q = 512, keep_prob = 1.0, df_dim = 24, model_name = "cppnvae"):
     """
 
     Args:
     z_dim               dimensionality of the latent vector
-    x_dim, y_dim        default resolution of generated images for training
     c_dim               1 for monotone, 3 for colour
     learning_rate       learning rate for the generator
                   _d    learning rate for the discriminiator
                   _vae  learning rate for the variational autoencoder
     net_size_g          number of activations per layer for cppn generator function
     net_depth_g         depth of generator
-    net_size_q          number of activations per layer for decoder (real image -> z). 2 layers.
+    net_size_q          number of activations per layer for decoder (real wav -> z). 2 layers.
     df_dim              discriminiator is a convnet.  higher -> more activtions -> smarter.
     keep_prob           dropout probability
 
@@ -56,9 +55,7 @@ class CPPNVAE():
     self.beta1 = beta1
     self.net_size_g = net_size_g
     self.net_size_q = net_size_q
-    self.x_dim = x_dim
-    self.y_dim = y_dim
-    self.scale = scale
+    self.t_dim = t_dim
     self.c_dim = c_dim
     self.z_dim = z_dim
     self.net_depth_g = net_depth_g
@@ -66,21 +63,17 @@ class CPPNVAE():
     self.keep_prob = keep_prob
     self.df_dim = df_dim
 
-    # tf Graph batch of image (batch_size, height, width, depth)
-    self.batch = tf.placeholder(tf.float32, [batch_size, x_dim, y_dim, c_dim])
+    # tf Graph batch of wav (batch_size, height, width, depth)
+    self.batch = tf.placeholder(tf.float32, [batch_size, t_dim, c_dim])
     self.batch_flatten = tf.reshape(self.batch, [batch_size, -1])
 
-    n_points = x_dim * y_dim
-    self.n_points = n_points
 
-    self.x_vec, self.y_vec, self.r_vec = self.coordinates(x_dim, y_dim, scale)
+    self.t_vec = self.coordinates(t_dim)
 
     # latent vector
     # self.z = tf.placeholder(tf.float32, [self.batch_size, self.z_dim])
     # inputs to cppn, like coordinates and radius from centre
-    self.x = tf.placeholder(tf.float32, [self.batch_size, None, 1])
-    self.y = tf.placeholder(tf.float32, [self.batch_size, None, 1])
-    self.r = tf.placeholder(tf.float32, [self.batch_size, None, 1])
+    self.t = tf.placeholder(tf.float32, [self.batch_size, None, 1])
 
     # batch normalization : deals with poor initialization helps gradient flow
     self.d_bn1 = batch_norm(batch_size, name=self.model_name+'_d_bn1')
@@ -98,7 +91,7 @@ class CPPNVAE():
 
     # Use generator to determine mean of
     # Bernoulli distribution of reconstructed input
-    self.G = self.generator(self.x_dim, self.y_dim)
+    self.G = self.generator(self.t_dim)
     self.batch_reconstruct_flatten = tf.reshape(self.G, [batch_size, -1])
 
     self.D_right = self.discriminator(self.batch) # discriminiator on correct examples
@@ -162,31 +155,11 @@ class CPPNVAE():
     self.d_loss = 1.0*(self.d_loss_real + self.d_loss_fake)/ 2.0
     self.g_loss = 1.0*binary_cross_entropy_with_logits(tf.ones_like(self.D_wrong), self.D_wrong)
 
-  def coordinates(self, x_dim = 32, y_dim = 32, scale = 1.0):
-    n_pixel = x_dim * y_dim
-    x_range = scale*(np.arange(x_dim)-(x_dim-1)/2.0)/(x_dim-1)/0.5
-    y_range = scale*(np.arange(y_dim)-(y_dim-1)/2.0)/(y_dim-1)/0.5
-    x_mat = np.matmul(np.ones((y_dim, 1)), x_range.reshape((1, x_dim)))
-    y_mat = np.matmul(y_range.reshape((y_dim, 1)), np.ones((1, x_dim)))
-    r_mat = np.sqrt(x_mat*x_mat + y_mat*y_mat)
-    x_mat = np.tile(x_mat.flatten(), self.batch_size).reshape(self.batch_size, n_pixel, 1)
-    y_mat = np.tile(y_mat.flatten(), self.batch_size).reshape(self.batch_size, n_pixel, 1)
-    r_mat = np.tile(r_mat.flatten(), self.batch_size).reshape(self.batch_size, n_pixel, 1)
-    return x_mat, y_mat, r_mat
+  def coordinates(self, t_dim=4096):
+    t_range = (np.arange(t_dim)-(t_dim-1))/2.0/(t_dim-1)/0.5
+    t_mat = np.tile(t_range.flatten(), self.batch_size).reshape(self.batch_size, t_dim, 1)
+    return t_mat
 
-  def show_image(self, image):
-    '''
-    image is in [height width depth]
-    '''
-    plt.subplot(1, 1, 1)
-    y_dim = image.shape[0]
-    x_dim = image.shape[1]
-    if self.c_dim > 1:
-      plt.imshow(image, interpolation='nearest')
-    else:
-      plt.imshow(image.reshape(y_dim, x_dim), cmap='Greys', interpolation='nearest')
-    plt.axis('off')
-    plt.show()
 
   def encoder(self):
     # Generate probabilistic encoder (recognition network), which
@@ -198,45 +171,46 @@ class CPPNVAE():
     z_log_sigma_sq = linear(H2, self.z_dim, self.model_name+'_q_lin3_log_sigma_sq')
     return (z_mean, z_log_sigma_sq)
 
-  def discriminator(self, image, reuse=False):
+  def discriminator(self, wav, reuse=False):
 
     if reuse:
         tf.get_variable_scope().reuse_variables()
 
-    h0 = lrelu(conv2d(image, self.df_dim, name=self.model_name+'_d_h0_conv'))
+    # convert to 2d - seems to be ok
+    wav = tf.reshape(wav, [self.batch_size, np.sqrt(t_dim), np.sqrt(t_dim), 1])
+
+    h0 = lrelu(conv2d(wav, self.df_dim, name=self.model_name+'_d_h0_conv'))
     h1 = lrelu(self.d_bn1(conv2d(h0, self.df_dim*2, name=self.model_name+'_d_h1_conv')))
     h2 = lrelu(self.d_bn2(conv2d(h1, self.df_dim*4, name=self.model_name+'_d_h2_conv')))
     h3 = linear(tf.reshape(h2, [self.batch_size, -1]), 1, self.model_name+'_d_h2_lin')
 
     return tf.nn.sigmoid(h3)
 
-  def generator(self, gen_x_dim = 26, gen_y_dim = 26, reuse = False):
+  def generator(self, gen_t_dim = 4096, reuse = False):
 
     if reuse:
         tf.get_variable_scope().reuse_variables()
 
     n_network = self.net_size_g
-    gen_n_points = gen_x_dim * gen_y_dim
+    gen_n_points = gen_t_dim
 
     z_scaled = tf.reshape(self.z, [self.batch_size, 1, self.z_dim]) * \
-                    tf.ones([gen_n_points, 1], dtype=tf.float32) * self.scale
+                    tf.ones([gen_n_points, 1], dtype=tf.float32) * 1.0#scale
     z_unroll = tf.reshape(z_scaled, [self.batch_size*gen_n_points, self.z_dim])
-    x_unroll = tf.reshape(self.x, [self.batch_size*gen_n_points, 1])
-    y_unroll = tf.reshape(self.y, [self.batch_size*gen_n_points, 1])
-    r_unroll = tf.reshape(self.r, [self.batch_size*gen_n_points, 1])
+    t_unroll = tf.reshape(self.t, [self.batch_size*gen_n_points, 1])
 
     U = fully_connected(z_unroll, n_network, self.model_name+'_g_0_z') + \
-        fully_connected(x_unroll, n_network, self.model_name+'_g_0_x', with_bias = False) + \
-        fully_connected(y_unroll, n_network, self.model_name+'_g_0_y', with_bias = False) + \
-        fully_connected(r_unroll, n_network, self.model_name+'_g_0_r', with_bias = False)
+        fully_connected(t_unroll, n_network, self.model_name+'_g_0_t', with_bias = False) 
 
     H = tf.nn.softplus(U)
 
     for i in range(1, self.net_depth_g):
       H = tf.nn.tanh(fully_connected(H, n_network, self.model_name+'_g_tanh_'+str(i)))
 
-    output = tf.sigmoid(fully_connected(H, self.c_dim, self.model_name+'_g_'+str(self.net_depth_g)))
-    result = tf.reshape(output, [self.batch_size, gen_y_dim, gen_x_dim, self.c_dim])
+    #last_layer = tf.mul(2*n_pi, fully_connected(H, self.c_dim, self.model_name+'_g_'+str(self.net_depth_g)))
+    #output = tf.sin(last_layer)
+    result = tf.reshape(output, [self.batch_size, gen_t_dim, self.c_dim])
+    
 
     return result
 
@@ -251,36 +225,28 @@ class CPPNVAE():
     """
 
     counter = 0
-    '''
-    for i in range(4):
-      counter += 1
-      _, vae_loss, g_loss = self.sess.run((self.g_opt, self.vae_loss, self.g_loss),
-                              feed_dict={self.batch: batch, self.x: self.x_vec, self.y: self.y_vec, self.r: self.r_vec})
-      if g_loss < 0.6:
-        break
-    '''
 
     for i in range(4):
       counter += 1
       _, vae_loss = self.sess.run((self.vae_opt, self.vae_loss),
-                              feed_dict={self.batch: batch, self.x: self.x_vec, self.y: self.y_vec, self.r: self.r_vec})
+                              feed_dict={self.batch: batch, self.t: self.t_vec})
 
 
     for i in range(4):
       counter += 1
       _, g_loss = self.sess.run((self.g_opt, self.g_loss),
-                              feed_dict={self.batch: batch, self.x: self.x_vec, self.y: self.y_vec, self.r: self.r_vec})
+                              feed_dict={self.batch: batch, self.t: self.t_vec})
       if g_loss < 0.6:
         break
 
     d_loss = self.sess.run(self.d_loss,
-                              feed_dict={self.batch: batch, self.x: self.x_vec, self.y: self.y_vec, self.r: self.r_vec})
+                              feed_dict={self.batch: batch, self.t: self.t_vec})
 
     if d_loss > 0.6 and g_loss < 0.75:
       for i in range(1):
         counter += 1
         _, d_loss = self.sess.run((self.d_opt, self.d_loss),
-                                feed_dict={self.batch: batch, self.x: self.x_vec, self.y: self.y_vec, self.r: self.r_vec})
+                                feed_dict={self.batch: batch, self.t: self.t_vec})
         if d_loss < 0.6:
           break
 
@@ -292,7 +258,7 @@ class CPPNVAE():
       # sample from Gaussian distribution
       return self.sess.run(self.z_mean, feed_dict={self.batch: X})
 
-  def generate(self, z=None, x_dim = 26, y_dim = 26, scale = 5.0):
+  def generate(self, z=None, t_dim = 64):
     """ Generate data by sampling from latent space.
 
     If z is not None, data for this point in latent space is
@@ -306,9 +272,9 @@ class CPPNVAE():
 
     z = np.reshape(z, (self.batch_size, self.z_dim))
 
-    G = self.generator(gen_x_dim = x_dim, gen_y_dim = y_dim, reuse = True)
-    gen_x_vec, gen_y_vec, gen_r_vec = self.coordinates(x_dim, y_dim, scale = scale)
-    image = self.sess.run(G, feed_dict={self.z: z, self.x: gen_x_vec, self.y: gen_y_vec, self.r: gen_r_vec})
+    G = self.generator(gen_t_dim = t_dim, reuse = True)
+    gen_t_vec, gen_r_vec = self.coordinates(t_dim)
+    image = self.sess.run(G, feed_dict={self.z: z, self.t: gen_t_vec})
     return image*32767
 
   def save_model(self, checkpoint_path, epoch):
