@@ -29,7 +29,6 @@ for x_dim in x_dims:
             print(np.array(wavdata), "/before")
 
             #biggest = np.max(np.abs(np.max(wavdata)), np.abs(np.min(wavdata)))
-            wavdata = np.sin(wavdata * np.pi/2.0) * 32767.0
             print("Biggest", np.max(wavdata))
             samplewav['data']=wavdata
 

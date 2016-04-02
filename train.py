@@ -97,7 +97,8 @@ def train(args):
         for i in range(total_batch):
           batch_audio =data[(i*samples_per_batch):((i+1)*samples_per_batch)]
           batch_audio = np.reshape(batch_audio, (batch_size, cppnvae.x_dim, cppnvae.y_dim, 1))
-          batch_audio = np.array(batch_audio, np.float32) / 65535.0
+          batch_audio = np.dot(np.array(batch_audio, np.float32), 1.0/32767)
+          print("max", np.max(batch_audio))
   
           d_loss, g_loss, vae_loss, n_operations = cppnvae.partial_train(batch_audio)
   
@@ -119,10 +120,11 @@ def train(args):
           avg_q_loss += g_loss / n_samples * batch_size
           avg_vae_loss += vae_loss / n_samples * batch_size
           
-        # save model
-        checkpoint_path = os.path.join('save', 'model.ckpt')
-        cppnvae.save_model(checkpoint_path, epoch)
-        print("model saved to {}".format(checkpoint_path))
+          if(counter % 30 == 0):
+            # save model
+            checkpoint_path = os.path.join('save', 'model.ckpt')
+            cppnvae.save_model(checkpoint_path, epoch)
+            print("model saved to {}".format(checkpoint_path))
 
 
       except:

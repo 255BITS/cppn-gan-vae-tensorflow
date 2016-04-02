@@ -102,7 +102,7 @@ class CPPNVAE():
     self.batch_reconstruct_flatten = tf.reshape(self.G, [batch_size, -1])
 
     self.D_right = self.discriminator(self.batch) # discriminiator on correct examples
-    self.D_wrong = self.discriminator(tensorflow_wav.scale_up(self.G), reuse=True) # feed generated images into D
+    self.D_wrong = self.discriminator(self.G, reuse=True) # feed generated images into D
 
     self.create_vae_loss_terms()
     self.create_gan_loss_terms()
@@ -309,7 +309,7 @@ class CPPNVAE():
     G = self.generator(gen_x_dim = x_dim, gen_y_dim = y_dim, reuse = True)
     gen_x_vec, gen_y_vec, gen_r_vec = self.coordinates(x_dim, y_dim, scale = scale)
     image = self.sess.run(G, feed_dict={self.z: z, self.x: gen_x_vec, self.y: gen_y_vec, self.r: gen_r_vec})
-    return image
+    return image*32767
 
   def save_model(self, checkpoint_path, epoch):
     """ saves the model to a file """
