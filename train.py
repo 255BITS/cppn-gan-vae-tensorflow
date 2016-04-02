@@ -121,6 +121,11 @@ def train(args):
         avg_q_loss += g_loss / n_samples * batch_size
         avg_vae_loss += vae_loss / n_samples * batch_size
 
+      # save model
+      checkpoint_path = os.path.join('save', 'model.ckpt')
+      cppnvae.save_model(checkpoint_path, epoch)
+      print("model saved to {}".format(checkpoint_path))
+
     # Display logs per epoch step
     if epoch >= 0:
       print("Epoch:", '%04d' % (epoch), \
@@ -128,11 +133,6 @@ def train(args):
             "avg_q_loss=", "{:.6f}".format(avg_q_loss), \
             "avg_vae_loss=", "{:.6f}".format(avg_vae_loss))
 
-    # save model
-    if epoch >= 0 and epoch % checkpoint_step == 0:
-      checkpoint_path = os.path.join('save', 'model.ckpt')
-      cppnvae.save_model(checkpoint_path, epoch)
-      print("model saved to {}".format(checkpoint_path))
 
   # save model one last time, under zero label to denote finish.
   cppnvae.save_model(checkpoint_path, 0)
