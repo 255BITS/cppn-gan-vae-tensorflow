@@ -41,8 +41,6 @@ from images2gif import writeGif
 class Sampler():
   def __init__(self):
     self.mnist = None
-    self.model = CPPNVAE(batch_size=128)
-    self.model.load_model('save')
     self.z = self.generate_z()
   def get_random_mnist(self, with_label = False):
     if self.mnist == None:
