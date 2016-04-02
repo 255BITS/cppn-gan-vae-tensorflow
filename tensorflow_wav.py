@@ -6,6 +6,7 @@ import scipy
 import ops
 import math
 import pickle
+import mdct
 
 FRAME_SIZE=(64/2048)
 HOP=(2048-64)/(2048*64)
@@ -99,20 +100,6 @@ def ff_nn(input, name):
 
 def scale_up(input):
     with tf.variable_scope("scale"):
-
         output = tf.nn.tanh(input)
         w = tf.get_variable('scale_w', [1], dtype=tf.float32, initializer=tf.constant_initializer(0.001))
         return output/w
-
-        raw_output, fft_real_output= tf.split(3, 2, output)
-        sign = tf.sign(raw_output)
-
-        #raw = tf.exp(tf.abs(10.8*raw_output))*sign
-        raw = raw_output * 32768
-
-        #new_fft = ff_nn(fft_output, 'fft')
-        #complex = tf.complex(fft_real_output, fft_imag_output)
-        #fft = complex / w
-        fft = fft_real_output / w
-
-        return tf.concat(3, [raw, fft])

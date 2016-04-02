@@ -71,7 +71,7 @@ def train(args):
 
   # Training cycle
   for epoch in range(training_epochs):
-    data = glob(os.path.join("./training", "*.wav"))
+    data = glob(os.path.join("./training", "*.mlaudio"))
     avg_d_loss = 0.
     avg_q_loss = 0.
     avg_vae_loss = 0.
@@ -79,16 +79,21 @@ def train(args):
         for filee in files:
             print("Yielding ", filee)
             try:
-                yield tensorflow_wav.get_wav(filee)
+                yield tensorflow_wav.get_pre(filee)
             except Exception as e:
                 print("Could not load ", filee, e)
 
 
     for filee in get_wav_content(data):
       data = filee["data"]
+      data = np.reshape(data, [-1])#first dimension
       n_samples = len(data)
       samples_per_batch=batch_size * cppnvae.x_dim * cppnvae.y_dim
       total_batch = int(n_samples / samples_per_batch)
+      print("BATCH")
+      print(n_samples)
+      print(samples_per_batch)
+      print(total_batch)
 
       # Loop over all batches
       for i in range(total_batch):
