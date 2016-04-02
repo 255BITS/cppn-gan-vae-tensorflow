@@ -32,6 +32,8 @@ from model import CPPNVAE
 import matplotlib.pyplot as plt
 import images2gif
 from images2gif import writeGif
+import glob
+import tensorflow_wav
 
 #mgc = get_ipython().magic
 #mgc(u'matplotlib inline')
@@ -93,31 +95,13 @@ class Sampler():
     plt.show()
   def show_image_from_z(self, z):
     self.show_image(self.generate(z))
-  def save_png(self, image_data, filename, specific_size = None):
-    img_data = np.array(1-image_data)
-    y_dim = image_data.shape[0]
-    x_dim = image_data.shape[1]
-    c_dim = self.model.c_dim
-    if c_dim > 1:
-      img_data = np.array(img_data.reshape((y_dim, x_dim, c_dim))*255.0, dtype=np.uint8)
-    else:
-      img_data = np.array(img_data.reshape((y_dim, x_dim))*255.0, dtype=np.uint8)
-    im = Image.fromarray(img_data)
-    if specific_size != None:
-      im = im.resize(specific_size)
-    im.save(filename)
-  def to_image(self, image_data):
-    # convert to PIL.Image format from np array (0, 1)
-    img_data = np.array(1-image_data)
-    y_dim = image_data.shape[0]
-    x_dim = image_data.shape[1]
-    c_dim = self.model.c_dim
-    if c_dim > 1:
-      img_data = np.array(img_data.reshape((y_dim, x_dim, c_dim))*255.0, dtype=np.uint8)
-    else:
-      img_data = np.array(img_data.reshape((y_dim, x_dim))*255.0, dtype=np.uint8)
-    im = Image.fromarray(img_data)
-    return im
+  def save_mlaudio(self, data, path):
+    paths = glob.glob("training/*.mlaudio")
+    load_file = tensorflow_wav.get_pre(paths[0])
+    mlaudio = load_file
+    mlaudio['data']= np.array([np.reshape(data, [-1])])
+    wav = tensorflow_wav.convert_mlaudio_to_wav(mlaudio, 1, 64)
+    return tensorflow_wav.save_wav(wav, path)
   def morph(self, z1, z2, n_total_frame = 10, x_dim = 512, y_dim = 512, scale = 8.0, sinusoid = False):
     '''
     returns a list of img_data to represent morph between z1 and z2

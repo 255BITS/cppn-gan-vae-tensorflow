@@ -17,12 +17,14 @@ def do_imdct(row):
 
 def convert_mlaudio_to_wav(mlaudio, dimensions, wav_x):
     audio = np.array(mlaudio['data'])
+    print("Scaling")
+    audio*=100000
     audio = np.reshape(audio,[-1, dimensions])
     audio = audio[:,0].tolist()
     imdct_data = np.array(audio).reshape([-1, wav_x])
     imdct_data = [do_imdct(row) for row in imdct_data]
+    print(np.array(imdct_data).shape)
 
-    print("NEW SHAPE", np.shape(imdct_data))
     mlaudio['data'] = np.array(imdct_data)
     return mlaudio
 
@@ -60,7 +62,7 @@ def save_wav(in_wav, path):
     wav.writeframes(processed)
 
 def save_pre(in_wav, path):
-    in_wav['data']*=100000
+    print(in_wav['data'])
     f = open(path, "wb")
     try:
         pickle.dump(in_wav, f, pickle.HIGHEST_PROTOCOL)
@@ -99,8 +101,11 @@ def ff_nn(input, name):
 
 
 
-def scale_up(input):
+def scale_up(input, reuse=None):
+
+    if reuse:
+        tf.get_variable_scope().reuse_variables()
     with tf.variable_scope("scale"):
         output = tf.nn.tanh(input)
-        w = tf.get_variable('scale_w', [1], dtype=tf.float32, initializer=tf.constant_initializer(0.001))
+        w = tf.get_variable('scale_ww', [1], dtype=tf.float32, initializer=tf.constant_initializer(0.001))
         return output/w

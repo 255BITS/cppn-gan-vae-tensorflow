@@ -40,9 +40,13 @@ def preprocess(output_file):
     raw = np.reshape(raw, [-1, WAV_X])
     mdct = [do_mdct(row) for row in raw]
     dct = np.zeros_like(mdct)
-    print("Converted to scale by ", np.max(mdct))
-    wav['max_mdct'] = np.max(mdct)
-    mdct = mdct / np.max(mdct)
+    abs = np.abs(np.min(mdct))
+    scale = np.max(mdct) + abs
+    print("Converted to scale by ", np.max(mdct), np.min(mdct), scale)
+    wav['max_mdct'] = scale
+    wav['min_mdct'] = abs
+    mdct = (mdct) / scale
+    print("Converted to scale by ", np.max(mdct), np.min(mdct), scale)
     #dct = [do_dct(row) for row in raw]
     #fft = np.swapaxes(fft, 0, 1)
     

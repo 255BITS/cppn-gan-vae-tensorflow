@@ -84,9 +84,11 @@ def train(args):
                 print("Could not load ", filee, e)
 
 
+    print("Iteratingg", data)
     for filee in get_wav_content(data):
       data = filee["data"]
       data = np.reshape(data, [-1])#first dimension
+      print("File stats: min/max", np.min(data), np.max(data))
       n_samples = len(data)
       samples_per_batch=batch_size * cppnvae.x_dim * cppnvae.y_dim
       total_batch = int(n_samples / samples_per_batch)
@@ -100,6 +102,7 @@ def train(args):
         batch_audio =data[(i*samples_per_batch):((i+1)*samples_per_batch)]
         batch_audio = np.reshape(batch_audio, (batch_size, cppnvae.x_dim, cppnvae.y_dim, 1))
         batch_audio = np.array(batch_audio, np.float32)
+        print(batch_audio.shape)
 
         d_loss, g_loss, vae_loss, n_operations = cppnvae.partial_train(batch_audio)
 

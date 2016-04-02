@@ -68,7 +68,7 @@ class CPPNVAE():
 
     # tf Graph batch of image (batch_size, height, width, depth)
     self.batch = tf.placeholder(tf.float32, [batch_size, x_dim, y_dim, c_dim])
-    self.batch_flatten = tf.reshape(self.batch, [batch_size, -1])
+    self.batch_flatten = tf.nn.sigmoid(tf.reshape(self.batch, [batch_size, -1]))
 
     n_points = x_dim * y_dim
     self.n_points = n_points
@@ -128,9 +128,10 @@ class CPPNVAE():
     init = tf.initialize_all_variables()
 
     # Launch the session
-    self.sess = tf.InteractiveSession()
-    self.sess.run(init)
-    self.saver = tf.train.Saver(tf.all_variables())
+    with tf.device("/cpu:0"):
+        self.sess = tf.InteractiveSession()
+        self.sess.run(init)
+        self.saver = tf.train.Saver(tf.all_variables())
 
   def create_vae_loss_terms(self):
     # The loss is composed of two terms:
@@ -237,7 +238,7 @@ class CPPNVAE():
     for i in range(1, self.net_depth_g):
       H = tf.nn.tanh(fully_connected(H, n_network, self.model_name+'_g_tanh_'+str(i)))
 
-    output = tf.sigmoid(fully_connected(H, self.c_dim, self.model_name+'_g_'+str(self.net_depth_g)))
+    output = tf.tanh(fully_connected(H, self.c_dim, self.model_name+'_g_'+str(self.net_depth_g)))
     result = tf.reshape(output, [self.batch_size, gen_y_dim, gen_x_dim, self.c_dim])
 
     return result
