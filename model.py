@@ -2,6 +2,7 @@ import os
 import time
 import numpy as np
 import tensorflow as tf
+import tensorflow_wav
 from ops import *
 
 '''
@@ -101,7 +102,7 @@ class CPPNVAE():
     self.batch_reconstruct_flatten = tf.reshape(self.G, [batch_size, -1])
 
     self.D_right = self.discriminator(self.batch) # discriminiator on correct examples
-    self.D_wrong = self.discriminator(self.G*65535, reuse=True) # feed generated images into D
+    self.D_wrong = self.discriminator(tensorflow_wav.scale_up(self.G), reuse=True) # feed generated images into D
 
     self.create_vae_loss_terms()
     self.create_gan_loss_terms()
