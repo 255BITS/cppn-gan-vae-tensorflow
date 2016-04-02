@@ -1,6 +1,8 @@
 import numpy as np
 import tensorflow as tf
 
+from glob import glob
+import tensorflow_wav
 import argparse
 import time
 import os
@@ -73,33 +75,49 @@ def train(args):
 
   # Training cycle
   for epoch in range(training_epochs):
+    data = glob(os.path.join("./training", "*.wav"))
     avg_d_loss = 0.
     avg_q_loss = 0.
     avg_vae_loss = 0.
     mnist.shuffle_data()
-    total_batch = int(n_samples / batch_size)
-    # Loop over all batches
-    for i in range(total_batch):
-      batch_images = mnist.next_batch(batch_size)
+    def get_wav_content(files):
+        for filee in files:
+            print("Yielding ", filee)
+            try:
+                yield tensorflow_wav.get_wav(filee)
+            except Exception as e:
+                print("Could not load ", filee, e)
 
-      d_loss, g_loss, vae_loss, n_operations = cppnvae.partial_train(batch_images)
 
-      assert( vae_loss < 1000000 ) # make sure it is not NaN or Inf
-      assert( d_loss < 1000000 ) # make sure it is not NaN or Inf
-      assert( g_loss < 1000000 ) # make sure it is not NaN or Inf
+    for filee in get_wav_content(data):
+      data = filee["data"]
+      n_samples = len(data)
+      total_batch = int(n_samples / batch_size)
 
-      # Display logs per epoch step
-      if (counter+1) % display_step == 0:
-        print("Sample:", '%d' % ((i+1)*batch_size), " Epoch:", '%d' % (epoch), \
-              "d_loss=", "{:.4f}".format(d_loss), \
-              "g_loss=", "{:.4f}".format(g_loss), \
-              "vae_loss=", "{:.4f}".format(vae_loss), \
-              "n_op=", '%d' % (n_operations))
-      counter += 1
-      # Compute average loss
-      avg_d_loss += d_loss / n_samples * batch_size
-      avg_q_loss += g_loss / n_samples * batch_size
-      avg_vae_loss += vae_loss / n_samples * batch_size
+      # Loop over all batches
+      for i in range(total_batch):
+        batch_audio =data[(i*batch_size*cppnvae.t_dim):((i+1)*batch_size*cppnvae.t_dim)]
+        print(np.shape(batch_audio), cppnvae.t_dim, batch_size)
+        batch_audio = np.reshape(batch_audio, (batch_size, cppnvae.t_dim, 1))
+
+        d_loss, g_loss, vae_loss, n_operations = cppnvae.partial_train(batch_audio)
+
+        assert( vae_loss < 1000000 ) # make sure it is not NaN or Inf
+        assert( d_loss < 1000000 ) # make sure it is not NaN or Inf
+        assert( g_loss < 1000000 ) # make sure it is not NaN or Inf
+
+        # Display logs per epoch step
+        if (counter+1) % display_step == 0:
+          print("Sample:", '%d' % ((i+1)*batch_size), " Epoch:", '%d' % (epoch), \
+                "d_loss=", "{:.4f}".format(d_loss), \
+                "g_loss=", "{:.4f}".format(g_loss), \
+                "vae_loss=", "{:.4f}".format(vae_loss), \
+                "n_op=", '%d' % (n_operations))
+        counter += 1
+        # Compute average loss
+        avg_d_loss += d_loss / n_samples * batch_size
+        avg_q_loss += g_loss / n_samples * batch_size
+        avg_vae_loss += vae_loss / n_samples * batch_size
 
     # Display logs per epoch step
     if epoch >= 0:
