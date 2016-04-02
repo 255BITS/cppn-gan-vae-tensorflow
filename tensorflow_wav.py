@@ -60,6 +60,7 @@ def save_wav(in_wav, path):
     wav.writeframes(processed)
 
 def save_pre(in_wav, path):
+    in_wav['data']*=100000
     f = open(path, "wb")
     try:
         pickle.dump(in_wav, f, pickle.HIGHEST_PROTOCOL)

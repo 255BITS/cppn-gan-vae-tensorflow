@@ -38,10 +38,11 @@ from images2gif import writeGif
 #mgc(u'run -i mnist_data.py')
 #pylab.rcParams['figure.figsize'] = (10.0, 10.0)
 
+BATCH_SIZE=128
 class Sampler():
   def __init__(self):
     self.mnist = None
-    self.model = CPPNVAE(batch_size=128)
+    self.model = CPPNVAE(batch_size=BATCH_SIZE)
     self.model.load_model('save')
     self.z = self.generate_z()
   def get_random_mnist(self, with_label = False):
@@ -63,7 +64,7 @@ class Sampler():
     self.show_image(m)
     self.show_image_from_z(self.encode(m))
   def generate_z(self):
-    z = np.random.normal(size=(128, self.model.z_dim)).astype(np.float32)
+    z = np.random.normal(size=(BATCH_SIZE, self.model.z_dim)).astype(np.float32)
     return z
   def encode(self, mnist_data):
     new_shape = [1]+list(mnist_data.shape)
@@ -72,7 +73,7 @@ class Sampler():
     if z is None:
       z = self.generate_z()
     else:
-      z = np.reshape(z, (128, self.model.z_dim))
+      z = np.reshape(z, (BATCH_SIZE, self.model.z_dim))
     self.z = z
     return self.model.generate(z, x_dim, y_dim, scale)
   def show_image(self, image_data):
