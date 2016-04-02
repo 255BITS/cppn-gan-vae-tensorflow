@@ -23,7 +23,7 @@ https://en.wikipedia.org/wiki/Compositional_pattern-producing_network
 '''
 
 class CPPNVAE():
-  def __init__(self, batch_size=2, z_dim=32,
+  def __init__(self, batch_size=1, z_dim=32,
                 x_dim = 64, y_dim = 64, c_dim = 1, scale = 8.0,
                 learning_rate= 0.01, learning_rate_d= 0.001, learning_rate_vae = 0.0001, beta1 = 0.9, net_size_g = 128, net_depth_g = 4,
                 net_size_q = 512, keep_prob = 1.0, df_dim = 24, model_name = "cppnvae"):
@@ -319,7 +319,7 @@ class CPPNVAE():
     ckpt = tf.train.get_checkpoint_state(checkpoint_path)
     print("loading model: ",ckpt.model_checkpoint_path)
 
-    self.saver.restore(self.sess, checkpoint_path+'/'+ckpt.model_checkpoint_path)
+    self.saver.restore(self.sess, ckpt.model_checkpoint_path)
     # use the below line for tensorflow 0.7
     #self.saver.restore(self.sess, ckpt.model_checkpoint_path)
 
