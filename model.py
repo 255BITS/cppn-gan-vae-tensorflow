@@ -26,7 +26,7 @@ https://en.wikipedia.org/wiki/Compositional_pattern-producing_network
 class CPPNVAE():
   def __init__(self, batch_size=1, z_dim=32,
                 t_dim = 4096, c_dim = 1,
-                learning_rate= 0.01, learning_rate_d= 0.001, learning_rate_vae = 0.0001, beta1 = 0.9, net_size_g = 128, net_depth_g = 4,
+                learning_rate= 0.01, learning_rate_d= 0.001, learning_rate_vae = 0.0001, beta1 = 0.9, net_size_g = 128, net_depth_g = 4, scale=8.0,
                 net_size_q = 512, keep_prob = 1.0, df_dim = 24, model_name = "cppnvae"):
     """
 
@@ -53,6 +53,7 @@ class CPPNVAE():
     self.learning_rate_d = learning_rate_d
     self.learning_rate_vae = learning_rate_vae
     self.beta1 = beta1
+    self.scale = scale
     self.net_size_g = net_size_g
     self.net_size_q = net_size_q
     self.t_dim = t_dim
@@ -68,7 +69,7 @@ class CPPNVAE():
     self.batch_flatten = tf.reshape(self.batch, [batch_size, -1])
 
 
-    self.t_vec = self.coordinates(t_dim)
+    self.t_vec = self.coordinates(t_dim, self.scale)
 
     # latent vector
     # self.z = tf.placeholder(tf.float32, [self.batch_size, self.z_dim])
@@ -155,8 +156,8 @@ class CPPNVAE():
     self.d_loss = 1.0*(self.d_loss_real + self.d_loss_fake)/ 2.0
     self.g_loss = 1.0*binary_cross_entropy_with_logits(tf.ones_like(self.D_wrong), self.D_wrong)
 
-  def coordinates(self, t_dim=4096):
-    t_range = (np.arange(t_dim)-(t_dim-1)/2.0)/(t_dim-1)/0.5
+  def coordinates(self, t_dim=4096, scale=8.0):
+    t_range = scale*(np.arange(t_dim)-(t_dim-1)/2.0)/(t_dim-1)/0.5
     t_mat = np.tile(t_range.flatten(), self.batch_size).reshape(self.batch_size, t_dim, 1)
     return t_mat
 
@@ -273,7 +274,7 @@ class CPPNVAE():
     z = np.reshape(z, (self.batch_size, self.z_dim))
 
     G = self.generator(gen_t_dim = t_dim, scale=scale, reuse = True)
-    gen_t_vec = self.coordinates(t_dim)
+    gen_t_vec = self.coordinates(t_dim, scale)
     image = self.sess.run(G, feed_dict={self.z: z, self.t: gen_t_vec})
     return np.dot(image,32767.0)
 

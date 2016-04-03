@@ -68,6 +68,7 @@ def train(args):
     cppnvae.load_model(dirname)
 
   counter = 0
+  loss_counter = 0
 
   # Training cycle
   for epoch in range(training_epochs):
@@ -93,6 +94,19 @@ def train(args):
       samples_per_batch=batch_size * cppnvae.t_dim
       total_batch = int(n_samples / samples_per_batch)
         
+      nonzero_data = []
+
+      for i in range(total_batch):
+          batch_audio =data[(i*samples_per_batch):((i+1)*samples_per_batch)]
+          maxi = np.max(batch_audio)
+          if(maxi > 1000):
+            # toss batches with low volume
+            nonzero_data = np.hstack((nonzero_data, batch_audio))
+        
+      print("Nonzero", len(nonzero_data), "All", len(data))
+      n_samples = len(nonzero_data)
+      total_batch = int(n_samples / samples_per_batch)
+
 
 
       try:
@@ -114,23 +128,35 @@ def train(args):
                   "vae_loss=", "{:.4f}".format(vae_loss), \
                   "n_op=", '%d' % (n_operations))
   
+          if(d_loss > 5 or g_loss > 5):
+              loss_counter+=1
+          else:
+              loss_counter=0
+
           assert( vae_loss < 1000000 ) # make sure it is not NaN or Inf
           assert( d_loss < 1000000 ) # make sure it is not NaN or Inf
           assert( g_loss < 1000000 ) # make sure it is not NaN or Inf
+          assert( loss_counter < 50 )
+
           counter += 1
           # Compute average loss
           avg_d_loss += d_loss / n_samples * batch_size
           avg_q_loss += g_loss / n_samples * batch_size
           avg_vae_loss += vae_loss / n_samples * batch_size
           
-          if(counter % 30 == 0):
-            # save model
-            checkpoint_path = os.path.join('save', 'model.ckpt')
-            cppnvae.save_model(checkpoint_path, epoch)
-            print("model saved to {}".format(checkpoint_path))
+          if(counter % 60 == 0):
+            if(g_loss > 5 or d_loss > 5):
+                print("Refusing to save b/c loss is too high")
+            else:
+                # save model
+                checkpoint_path = os.path.join('save', 'model.ckpt')
+                cppnvae.save_model(checkpoint_path, epoch)
+                print("model saved to {}".format(checkpoint_path))
 
 
       except:
+          loss_counter = 0
+          counter = 0
           print("Oh shit we diverged. Reloading and retrying different file")
           # load previously trained model if appilcabl
           ckpt = tf.train.get_checkpoint_state(dirname)
