@@ -191,27 +191,69 @@ class CPPNVAE():
 
     if reuse:
         tf.get_variable_scope().reuse_variables()
+    WAV_HEIGHT = int(np.sqrt(gen_t_dim))
+    WAV_WIDTH = int(np.sqrt(gen_t_dim))
+    DIMENSIONS = self.c_dim
+    gf_dim=int(np.sqrt(gen_t_dim))
+    z = self.z
+    batch_size = self.batch_size
 
-    n_network = self.net_size_g
-    gen_n_points = gen_t_dim
+    g_bn0 = batch_norm(batch_size, name='g_bn0')
+    g_bn1 = batch_norm(batch_size, name='g_bn1')
+    g_bn2 = batch_norm(batch_size, name='g_bn2')
+    g_bn3 = batch_norm(batch_size, name='g_bn3')
+    print("Generator creation")
+    print('z', z.get_shape())
+    # project `z` and reshape
+    self.z_, self.h0_w, self.h0_b = linear(z, gf_dim*8*4*4, 'g_h0_lin', with_w=True)
+    print('z_', z.get_shape())
+    print('self.h0_w', self.h0_w.get_shape())
 
-    z_scaled = tf.reshape(self.z, [self.batch_size, 1, self.z_dim]) * \
-                    tf.ones([gen_n_points, 1], dtype=tf.float32) * scale
-    z_unroll = tf.reshape(z_scaled, [self.batch_size*gen_n_points, self.z_dim])
-    t_unroll = tf.reshape(self.t, [self.batch_size*gen_n_points, 1])
+    self.h0 = tf.reshape(self.z_, [self.batch_size, int(WAV_WIDTH/16), int(WAV_HEIGHT/16) , gf_dim * 8])
+    h0 = tf.nn.relu(g_bn0(self.h0))
+    print('h0',h0.get_shape())
 
-    U = fully_connected(z_unroll, n_network, self.model_name+'_g_0_z') + \
-        fully_connected(t_unroll, n_network, self.model_name+'_g_0_t', with_bias = False) 
+    self.h1, self.h1_w, self.h1_b = deconv2d(h0, 
+            [self.batch_size, int(WAV_WIDTH/8), int(WAV_HEIGHT/8), gf_dim*4], name='g_h1', with_w=True)
+    h1 = tf.nn.relu(g_bn1(self.h1))
+    print('h1',h1.get_shape())
 
-    H = tf.nn.softplus(U)
+    h2, self.h2_w, self.h2_b = deconv2d(h1,
+            [self.batch_size, int(WAV_WIDTH/4), int(WAV_HEIGHT/4), gf_dim*2], name='g_h2', with_w=True)
+    h2 = tf.nn.relu(g_bn2(h2))
+    print('h2',h2.get_shape())
 
-    for i in range(1, self.net_depth_g):
-      H = tf.nn.tanh(fully_connected(H, n_network, self.model_name+'_g_tanh_'+str(i)))
+    h3, self.h3_w, self.h3_b = deconv2d(h2,
+            [self.batch_size, int(WAV_WIDTH/2), int(WAV_HEIGHT/2), gf_dim], name='g_h3', with_w=True)
+    h3 = tf.nn.relu(g_bn3(h3))
+    print('h3',h3.get_shape())
 
-    #last_layer = tf.mul(2*n_pi, fully_connected(H, self.c_dim, self.model_name+'_g_'+str(self.net_depth_g)))
-    #output = tf.sin(last_layer)
-    output = tf.sigmoid(fully_connected(H, self.c_dim, self.model_name+'_g_'+str(self.net_depth_g)))
-    result = tf.reshape(output, [self.batch_size, gen_t_dim, self.c_dim])
+    h4= deconv2d(h3,
+            [self.batch_size, WAV_WIDTH, WAV_HEIGHT, DIMENSIONS], name='g_h4', with_w=False)
+
+    print('h4',h4.get_shape())
+    result = tf.nn.sigmoid(h4)
+
+    #n_network = self.net_size_g
+    #gen_n_points = gen_t_dim
+
+    #z_scaled = tf.reshape(self.z, [self.batch_size, 1, self.z_dim]) * \
+    #                tf.ones([gen_n_points, 1], dtype=tf.float32) * scale
+    #z_unroll = tf.reshape(z_scaled, [self.batch_size*gen_n_points, self.z_dim])
+    #t_unroll = tf.reshape(self.t, [self.batch_size*gen_n_points, 1])
+
+    #U = fully_connected(z_unroll, n_network, self.model_name+'_g_0_z') + \
+    #    fully_connected(t_unroll, n_network, self.model_name+'_g_0_t', with_bias = False) 
+
+    #H = tf.nn.softplus(U)
+
+    #for i in range(1, self.net_depth_g):
+    #  H = tf.nn.tanh(fully_connected(H, n_network, self.model_name+'_g_tanh_'+str(i)))
+
+    ##last_layer = tf.mul(2*n_pi, fully_connected(H, self.c_dim, self.model_name+'_g_'+str(self.net_depth_g)))
+    ##output = tf.sin(last_layer)
+    #output = tf.sigmoid(fully_connected(H, self.c_dim, self.model_name+'_g_'+str(self.net_depth_g)))
+    #result = tf.reshape(output, [self.batch_size, gen_t_dim, self.c_dim])
 
     return result
 
@@ -259,7 +301,7 @@ class CPPNVAE():
       # sample from Gaussian distribution
       return self.sess.run(self.z_mean, feed_dict={self.batch: X})
 
-  def generate(self, z=None, t_dim = 64, scale=8.0):
+  def generate(self, z=None, t_dim = 4096, scale=8.0, length=1):
     """ Generate data by sampling from latent space.
 
     If z is not None, data for this point in latent space is
@@ -274,9 +316,11 @@ class CPPNVAE():
     z = np.reshape(z, (self.batch_size, self.z_dim))
 
     G = self.generator(gen_t_dim = t_dim, scale=scale, reuse = True)
-    gen_t_vec = self.coordinates(t_dim, scale)
+    gen_t_vec = self.coordinates(int(t_dim/length), scale)
+    gen_t_vec = np.tile(gen_t_vec, length)
+    gen_t_vec = np.reshape(gen_t_vec, (self.batch_size, t_dim, 1))
     image = self.sess.run(G, feed_dict={self.z: z, self.t: gen_t_vec})
-    return np.dot(image,32767.0)
+    return np.subtract(np.dot(image,32767.0*2), 32767)
 
   def save_model(self, checkpoint_path, epoch):
     """ saves the model to a file """

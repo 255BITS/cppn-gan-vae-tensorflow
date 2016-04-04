@@ -31,13 +31,13 @@ def main():
                      help='checkpoint step')
   parser.add_argument('--batch_size', type=int, default=128,
                      help='batch size')
-  parser.add_argument('--learning_rate', type=float, default=0.002,
+  parser.add_argument('--learning_rate', type=float, default=0.007,
                      help='learning rate for G and VAE')
   parser.add_argument('--learning_rate_vae', type=float, default=0.001,
                      help='learning rate for VAE')
-  parser.add_argument('--learning_rate_d', type=float, default=0.0005,
+  parser.add_argument('--learning_rate_d', type=float, default=0.0002,
                      help='learning rate for D')
-  parser.add_argument('--keep_prob', type=float, default=0.6,
+  parser.add_argument('--keep_prob', type=float, default=0.8,
                      help='dropout keep probability')
   parser.add_argument('--beta1', type=float, default=0.65,
                      help='adam momentum param for descriminator')
@@ -88,24 +88,23 @@ def train(args):
 
     for filee in get_wav_content(batch_files):
       data = filee["data"]
-      print("min", np.min(data), np.max(data))
 
       n_samples = len(data)
       samples_per_batch=batch_size * cppnvae.t_dim
       total_batch = int(n_samples / samples_per_batch)
         
-      nonzero_data = []
+      #nonzero_data = []
 
-      for i in range(total_batch):
-          batch_audio =data[(i*samples_per_batch):((i+1)*samples_per_batch)]
-          maxi = np.max(batch_audio)
-          if(maxi > 1000):
-            # toss batches with low volume
-            nonzero_data = np.hstack((nonzero_data, batch_audio))
-        
-      print("Nonzero", len(nonzero_data), "All", len(data))
-      n_samples = len(nonzero_data)
-      total_batch = int(n_samples / samples_per_batch)
+      #for i in range(total_batch):
+      #    batch_audio =data[(i*samples_per_batch):((i+1)*samples_per_batch)]
+      #    maxi = np.max(batch_audio)
+      #    if(maxi > 1000):
+      #      # toss batches with low volume
+      #      nonzero_data = np.hstack((nonzero_data, batch_audio))
+      #  
+      #print("Nonzero", len(nonzero_data), "All", len(data))
+      #n_samples = len(nonzero_data)
+      #total_batch = int(n_samples / samples_per_batch)
 
 
 
@@ -115,7 +114,9 @@ def train(args):
         for i in range(total_batch):
           batch_audio =data[(i*samples_per_batch):((i+1)*samples_per_batch)]
           batch_audio = np.reshape(batch_audio, (batch_size, cppnvae.t_dim, 1))
-          batch_audio = np.dot(np.array(batch_audio, np.float32), 1.0/32767)
+          batch_audio = np.dot(np.array(batch_audio, np.float32), 1.0/(32767*2))
+          batch_audio = np.add(batch_audio, 0.5)
+          # 0 - 1 scale
   
           d_loss, g_loss, vae_loss, n_operations = cppnvae.partial_train(batch_audio)
   
@@ -144,7 +145,7 @@ def train(args):
           avg_q_loss += g_loss / n_samples * batch_size
           avg_vae_loss += vae_loss / n_samples * batch_size
           
-          if(counter % 60 == 0):
+          if(counter % 30 == 0):
             if(g_loss > 5 or d_loss > 5):
                 print("Refusing to save b/c loss is too high")
             else:
